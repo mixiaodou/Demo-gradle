@@ -1,0 +1,42 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:2.3.3'
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
+
+allprojects {
+    repositories {
+        jcenter()
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
+
+
+//-------gradle 统一依赖管理
+/*在根目录中配置公用供子模块调用*/
+ext {
+    //Android
+    compileSdkVersion = 26
+    buildToolsVersion = "26.0.2"
+    minSdkVersion = 15
+    targetSdkVersion = 26
+
+    //Version
+    supportLibrary = "26.+"
+
+    //supportLibraries dependencies
+    supportDependencies = [
+            supportAppcompat: "com.android.support:appcompat-v7:${supportLibrary}",
+    ]
+}

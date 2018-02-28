@@ -1,0 +1,112 @@
+apply plugin: 'com.android.application'
+
+//---多渠道打包 0/3
+//生成打包时间
+def releaseTime() {
+    return new Date().format("yyyy-MM-dd", TimeZone.getTimeZone("UTC"))
+}
+
+android {
+    compileSdkVersion rootProject.ext.compileSdkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+
+
+    defaultConfig {
+        applicationId "com.text.demo_gradle"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+    }
+    //配置编译的jdk版本
+//    compileOptions {
+//        sourceCompatibility org.gradle.api.JavaVersion.VERSION_1_7
+//        targetCompatibility org.gradle.api.JavaVersion.VERSION_1_7
+//    }
+
+    //---多渠道打包 1/3
+    //签名配置
+    signingConfigs {
+        debug {
+            // 指定 debug证书
+            //todo 如果配置了release 无法打出 debug包, 还不知道原因
+            storeFile file("${rootDir}/keystores/debug.keystore")
+        }
+
+        release {
+            storeFile file("${rootDir}/keystores/test.jks") //release证书
+            storePassword "testtest"                         //签名证书密码
+            keyAlias "test"                                 //别名
+            keyPassword "testtest"                           //别名密码
+        }
+    }
+    //---多渠道打包 2/3
+    buildTypes {//用于生成不同编译类型的包，如debug和release包
+        debug {
+            signingConfig signingConfigs.debug  //使用debug证书签名
+            buildConfigField("boolean", "LOG_ON", "true")//通过编译类型配置日志开关
+            versionNameSuffix "-debug"                       //包名后缀为“-debug”
+
+            minifyEnabled false           //是否混淆
+            zipAlignEnabled false         //Zipalign优化
+            shrinkResources false         // 移除无用的resource文件
+
+        }
+
+        release {
+            signingConfig signingConfigs.release //使用release证书签名
+            buildConfigField "boolean", "LOG_ON", "false" //不显示Log
+
+            minifyEnabled false             //开启混淆
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            zipAlignEnabled true           //开启Zipalign优化
+            shrinkResources false           //移除无用的resource文件，此项只有在开启混淆时才生效
+
+            //多渠道打包配置
+            applicationVariants.all { variant ->
+                variant.outputs.each { output ->
+                    def outputFile = output.outputFile
+                    if (outputFile != null && outputFile.name.endsWith('.apk')) {
+                        // 输出apk名称为:test_v1.0_2016-08-15_wandoujia.apk
+                        def fileName = "test_v" +
+                                "${defaultConfig.versionName}" +
+                                "_${releaseTime()}" +
+                                "_${variant.productFlavors[0].name}" +
+                                ".apk"
+                        output.outputFile = new File(outputFile.parent, fileName)
+                    }
+                }
+            }
+        }
+    }
+    //---多渠道打包 3/3
+    // 渠道配置
+    productFlavors {
+        wandoujia {}
+        baidu {}
+        xiaomi {}
+        _360 {} //  或 “"360"{}”，数字需下划线开头或加上双引号
+    }
+    productFlavors.all { flavor ->
+        //动态地修改AndroidManifest中的渠道名
+        flavor.manifestPlaceholders = [UMENG_CHANNEL_VALUE: name]
+
+    }
+
+}
+
+dependencies {
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+    androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
+        exclude group: 'com.android.support', module: 'support-annotations'
+    })
+    compile 'com.android.support.constraint:constraint-layout:1.0.2'
+    testCompile 'junit:junit:4.12'
+    // 方式1 直接 声明库文件 使用单引号
+    //compile 'com.android.support:appcompat-v7:26.0+'
+    // 方式2 通过引用 声明库文件 使用双引号
+    compile "com.android.support:appcompat-v7:${rootProject.ext.supportLibrary}"
+    // 方式2的另外一种形式
+    //complie rootProject.ext.supportDependencies.supportAppcompat
+}
