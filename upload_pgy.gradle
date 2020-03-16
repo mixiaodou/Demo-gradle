@@ -1,0 +1,118 @@
+
+import groovy.json.JsonSlurper
+/**
+ * 上传apk到蒲公英
+ */
+def uploadApk() {
+    //查找上传的apk文件
+    def apkDir = new File("app/build/outputs/apk/debug")
+    if (!apkDir.exists()) {
+        throw new RuntimeException("apk output path not exists!")
+    }
+
+    def apk = null
+    for (int i = apkDir.listFiles().length - 1; i >= 0; i--) {
+        File file = apkDir.listFiles()[i]
+        if (file.name.endsWith(".apk")) {
+            apk = file
+            break
+        }
+    }
+    if (apk == null) {
+        throw new RuntimeException("apk file not exists!")
+    }
+
+    println "*************** start upload file ***************"
+
+    def twoHyphens = "--"
+    def boundary = "*********"
+    def end = "\r\n"
+
+    //模拟表单上传 multipart/form-data
+    def conn = new URL("https://www.pgyer.com/apiv2/app/upload").openConnection()
+    conn.setRequestMethod('POST')
+    conn.setRequestProperty("Connection", "Keep-Alive")
+    conn.setRequestProperty("Charset", "UTF-8")
+    conn.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary)
+    conn.setDoInput(true)
+    conn.setDoOutput(true)
+
+    //添加参数：_api_key
+    def sb = new StringBuilder()
+    sb.append(twoHyphens).append(boundary).append(end)
+    sb.append("Content-Disposition: form-data; name=_api_key")
+    sb.append(end).append(end)
+    sb.append("填自己的apikey").append(end)
+
+    //添加参数：buildUpdateDescription 更新日志，取值git
+    sb.append(twoHyphens).append(boundary).append(end)
+    sb.append("Content-Disposition: form-data; name=buildUpdateDescription")
+    sb.append(end).append(end)
+    sb.append(getGitVersionInfo()).append(end)
+
+    //添加参数：buildInstallType 设置密码安装
+    sb.append(twoHyphens).append(boundary).append(end)
+    sb.append("Content-Disposition: form-data; name=buildInstallType")
+    sb.append(end).append(end)
+    sb.append(2).append(end)
+
+    //添加参数：buildPassword 设置密码
+    sb.append(twoHyphens).append(boundary).append(end)
+    sb.append("Content-Disposition: form-data; name=buildPassword")
+    sb.append(end).append(end)
+    sb.append("1024").append(end)
+
+    //添加参数file: 需要上传的apk文件
+    sb.append(twoHyphens).append(boundary).append(end)
+    sb.append("Content-Disposition: form-data; name=file;filename=").append(apk.getName())
+    sb.append(end).append(end)
+
+    def dos = new DataOutputStream(conn.getOutputStream())
+    dos.writeBytes(sb.toString())
+    dos.flush()
+    sb.delete(0, sb.length())
+
+    def fis = new FileInputStream(apk)
+    byte[] bf = new byte[8192]
+    int len
+    while ((len = fis.read(bf)) != -1) {
+        dos.write(bf, 0, len)
+    }
+    sb.append(end)
+    sb.append(twoHyphens).append(boundary).append(end)
+    dos.writeBytes(sb.toString())
+
+    dos.flush()
+    fis.close()
+    dos.close()
+    conn.connect()
+
+    def text = conn.getContent().text
+    def resp = new JsonSlurper().parseText(text)
+
+    println text
+    println "*************** upload finish ***************"
+
+    if (resp.code != 0) {
+        throw new RuntimeException(resp.message)
+    }
+
+    //浏览器中打开短连接
+    def url = "https://www.pgyer.com/" + resp.data.buildShortcutUrl
+    print("上传成功，应用链接：" + url)
+
+}
+
+
+def getGitVersionInfo() {
+    return 'git log -n 1'.execute().text.trim()
+}
+
+//打包测试环境apk 上传蒲公英 发送邮件功能使用蒲公英自带的邮件功能
+task uploadApk(group: "upload") {
+    dependsOn("assembleDebug")
+
+    doLast {
+        uploadApk()
+    }
+}
