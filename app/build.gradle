@@ -1,10 +1,6 @@
 apply plugin: 'com.android.application'
 apply from: "../upload_pgy.gradle"
 
-def releaseTime() {
-    return new Date().format("yyyy-MM-dd", TimeZone.getTimeZone("UTC"))
-}
-
 android {
     compileSdkVersion rootProject.ext.compileSdkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -64,6 +60,7 @@ android {
 
         }
     }
+
     //多渠道打包
     // 渠道配置
     productFlavors {
@@ -85,16 +82,17 @@ android {
         //动态地修改AndroidManifest中的渠道名
         flavor.manifestPlaceholders = [UMENG_CHANNEL_VALUE: name]
     }
-    //Android3.0以上
+    //AS3.0以上
     android.applicationVariants.all { variant ->
         variant.outputs.all {
+            def formatDate = new Date().format("yyMMdd", TimeZone.getTimeZone("UTC"))
             //输出路径
 //            variant.getPackageApplication().outputDirectory =
 //                    new File(project.rootDir.absolutePath + "/build/outputs/apk/release")
             outputFileName = "app_${variant.getFlavorName()}_v${variant.versionName}.apk"
         }
     }
-    //Android3.0以下
+    //AS3.0以下
     /*applicationVariants.all { variant ->
         variant.outputs.each { output ->
             def outputFile = output.outputFile
